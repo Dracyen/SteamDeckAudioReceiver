@@ -41,18 +41,28 @@ def create_ui():
     volume_slider.set(100.0)
     volume_slider.config(command=set_volume)
 
+    print_list_button = tk.Button(root, command=print_audio_devices, text="Print List")
+    print_list_button.pack()
+
     root.mainloop()
 
 def print_audio_devices():
     
     port_audio = pyaudio.PyAudio()
 
+    count = 0
+
     for i in range(0, port_audio.get_device_count()):
         info = port_audio.get_device_info_by_index(i)
-        print(f"Device index: {i}")
-        print(f"Device name: {info['name']}")
-        print(f"Sample rate: {info['defaultSampleRate']} Hz")
-        print(f"Channels: {info['maxInputChannels']}")
+
+        if(info['maxInputChannels'] > 0):
+            count = count + 1
+            print(f"Device index: {i}")
+            print(f"Device name: {info['name']}")
+            print(f"Sample rate: {info['defaultSampleRate']} Hz")
+            print(f"Channels: {info['maxInputChannels']}")
+
+    print(f"Total Count: {count}")
 
 def list_audio_devices():
 
@@ -137,12 +147,21 @@ def play_audio_thread():
     status_label.config(text="Idling")
     thread_is_active = False
 
+def is_input_valid(device_index):
+    port_audio = pyaudio.PyAudio()
+    try:
+        info = port_audio.get_device_info_by_index(device_index)
+        if info['maxInputChannels'] > 0:
+            return True
+        else:
+            return False
+    except IOError:
+        return False
+    finally:
+        port_audio.terminate()
 
 def set_volume(value):
     pygame.mixer.music.set_volume(float(value))
 
 if __name__ == "__main__":
     create_ui()
-    # print_audio_devices()
-    # record_audio(filename, duration=5)
-    # play_audio(filename)
