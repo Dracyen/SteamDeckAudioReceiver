@@ -9,11 +9,13 @@ duration = 5
 source_index = 4
 thread_is_active = False
 
-def test_func(arg1):
-    print(f"{arg1}")
+def change_source(arg1):
+    global source_index
+
+    new_index = arg1.split("-")[0]
+    source_index = int(new_index.strip())
 
 def create_ui():
-
     root = tk.Tk()
     root.title("Audio Streamer")
 
@@ -23,13 +25,13 @@ def create_ui():
     device_var = tk.StringVar(root)
     device_var.set(device_names[0])
 
-    device_dropdown = tk.OptionMenu(root, device_var, *device_names, command=test_func)
+    device_dropdown = tk.OptionMenu(root, device_var, *device_names, command=change_source)
     device_dropdown.pack()
 
-    record_button = tk.Button(root, command=record_audio, text="Connect")
+    record_button = tk.Button(root, command=record_audio, text="Record")
     record_button.pack()
 
-    play_button = tk.Button(root, command=play_audio, text="Disconnect")
+    play_button = tk.Button(root, command=play_audio, text="Play")
     play_button.pack()
 
     global status_label
@@ -55,15 +57,20 @@ def print_audio_devices():
         print(f"Channels: {info['maxInputChannels']}")
 
 def list_audio_devices():
+    global device_info_list
 
     port_audio = pyaudio.PyAudio()
-
+    device_info_list = []
     info = []
 
     for i in range(port_audio.get_device_count()):
         device_info = port_audio.get_device_info_by_index(i)
-        if device_info['maxInputChannels'] > 0:  # Filter for input devices
-            info.append((device_info['name'], i))
+        if device_info['maxInputChannels'] > 0:
+            device_info_list.append(device_info)
+            full_name = device_info['name']
+            full_name = (str(i) + " - " + full_name)
+            info.append((full_name, i))
+
     port_audio.terminate()
     return info
 
@@ -72,25 +79,46 @@ def record_audio():
 
     if(not thread_is_active):
         action_thread = threading.Thread(target=record_audio_thread)
-        thread_is_active = True
+        Thread_is_active = True
         action_thread.start()
 
 def record_audio_thread():
     global filename
     global duration
     global thread_is_active
+    global device_info_list
 
     status_label.config(text="Recording")
 
-    CHUNK = 1024
+    active_device_info = device_info_list[source_index]
+
     FORMAT = pyaudio.paInt16
-    CHANNELS = 1
-    RATE = 44100
+    CHANNELS = int(active_device_info['maxInputChannels'])
+    RATE = int(active_device_info['defaultSampleRate'])
+    CHUNK = 1024
 
     port_audio = pyaudio.PyAudio()
 
-    stream = port_audio.open(format=FORMAT, channels=CHANNELS, rate=RATE, input=True, input_device_index = source_index, frames_per_buffer = CHUNK)
-    
+    stream = port_audio.open(
+        format=FORMAT,
+        channels=CHANNELS,
+        rate=RATE,
+        input=True,
+        input_device_index = source_index,
+        frames_per_buffer = CHUNK)
+
+    # try:
+    #     stream = port_audio.open(format=FORMAT, channels=CHANNELS, rate=RATE, input=True, input_device_index = source_index, frames_per_buffer = CHUNK)
+    #     stream_is_open = True
+    #     print("Stream has started!")
+    # except:
+    #     print("An exception has occurred with source!")
+    #     port_audio.terminate()
+    #     status_label.config(text="Idling")
+    #     thread_is_active = False
+
+    print("It's working!")
+
     frames = []
 
     for i in range(int(RATE / CHUNK * duration)):
@@ -112,6 +140,8 @@ def record_audio_thread():
     
     status_label.config(text="Idling")
     thread_is_active = False
+        
+        
 
 def play_audio():
     global thread_is_active
@@ -136,7 +166,6 @@ def play_audio_thread():
 
     status_label.config(text="Idling")
     thread_is_active = False
-
 
 def set_volume(value):
     pygame.mixer.music.set_volume(float(value))
